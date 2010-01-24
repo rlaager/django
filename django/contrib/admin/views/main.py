@@ -210,7 +210,7 @@ class ChangeList(object):
                         pass
                     else:
                         if isinstance(f.rel, models.ManyToOneRel):
-                            qs = qs.select_related()
+                            qs = qs.select_related(depth=1)
                             break
 
         # Set ordering.
