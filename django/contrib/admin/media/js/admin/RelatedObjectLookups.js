@@ -74,11 +74,11 @@ function dismissAddAnotherPopup(win, newId, newRepr) {
     var name = windowname_to_id(win.name);
     var elem = document.getElementById(name);
     if (elem) {
-        if (elem.nodeName == 'SELECT') {
+        if (elem.nodeName.toUpperCase() == 'SELECT') {
             var o = new Option(newRepr, newId);
             elem.options[elem.options.length] = o;
             o.selected = true;
-        } else if (elem.nodeName == 'INPUT') {
+        } else if (elem.nodeName.toUpperCase() == 'INPUT') {
             if (elem.className.indexOf('vManyToManyRawIdAdminField') != -1 && elem.value) {
                 elem.value += ',' + newId;
             } else {
