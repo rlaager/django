@@ -608,7 +608,7 @@ class ModelAdmin(BaseModelAdmin):
         if request.POST.has_key("_popup"):
             return HttpResponse('<script type="text/javascript">opener.dismissAddAnotherPopup(window, "%s", "%s");</script>' % \
                 # escape() calls force_unicode.
-                (escape(pk_value), escape(obj)))
+                (escape(pk_value), escape(obj)), mimetype="text/html")
         elif request.POST.has_key("_addanother"):
             self.message_user(request, msg + ' ' + (_("You may add another %s below.") % force_unicode(opts.verbose_name)))
             return HttpResponseRedirect(request.path)
