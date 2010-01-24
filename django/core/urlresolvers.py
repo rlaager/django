@@ -259,6 +259,9 @@ class RegexURLResolver(object):
         except (ImportError, AttributeError), e:
             raise ViewDoesNotExist, "Tried %s. Error was: %s" % (callback, str(e))
 
+    def resolve403(self):
+        return self._resolve_special('403')
+
     def resolve404(self):
         return self._resolve_special('404')
 

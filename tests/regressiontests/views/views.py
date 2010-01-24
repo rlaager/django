@@ -1,5 +1,6 @@
 import sys
 
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect
 from django import forms
 from django.views.debug import technical_500_response
@@ -43,3 +44,6 @@ def redirect(request):
     """
     return HttpResponseRedirect("target/")
 
+def generate_permission_denied_with_reason(request):
+    """Dummy page to test Permission Denied exception with reason"""
+    raise PermissionDenied("Not allowed")
