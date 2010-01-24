@@ -13,11 +13,12 @@ except ImportError:
     from django.utils.functional import wraps  # Python 2.3, 2.4 fallback.
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseForbidden
 from django.utils.hashcompat import md5_constructor
 from django.utils.safestring import mark_safe
 
-_ERROR_MSG = mark_safe('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"><body><h1>403 Forbidden</h1><p>Cross Site Request Forgery detected. Request aborted.</p></body></html>')
+_ERROR_MSG = "Cross Site Request Forgery detected."
 
 _POST_FORM_RE = \
     re.compile(r'(<form\W[^>]*\bmethod\s*=\s*(\'|"|)POST(\'|"|)\b[^>]*>)', re.IGNORECASE)
@@ -51,10 +52,10 @@ class CsrfViewMiddleware(object):
             try:
                 request_csrf_token = request.POST['csrfmiddlewaretoken']
             except KeyError:
-                return HttpResponseForbidden(_ERROR_MSG)
+                raise PermissionDenied(_ERROR_MSG)
 
             if request_csrf_token != csrf_token:
-                return HttpResponseForbidden(_ERROR_MSG)
+                raise PermissionDenied(_ERROR_MSG)
 
         return None
 

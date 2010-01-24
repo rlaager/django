@@ -1,3 +1,36 @@
+r"""
+>>> from django.conf import settings
+>>> from django import http
+>>> from django.contrib.csrf.middleware import CsrfMiddleware, _make_token
+>>> csrf = CsrfMiddleware()
+>>> request = http.HttpRequest()
+>>> request.method = 'POST'
+
+If no session exists, returns None (check not required)
+>>> csrf.process_request(request)
+
+If token doesn't exist, raise PermissionDenied
+>>> request.COOKIES[settings.SESSION_COOKIE_NAME] = 'my_session_id'
+>>> csrf.process_request(request)
+Traceback (most recent call last):
+    ...
+PermissionDenied
+
+If token exists and does not match session id, raise PermissionDenied
+>>> request.POST['csrfmiddlewaretoken'] = 'hackers_session_id'
+>>> csrf.process_request(request)
+Traceback (most recent call last):
+    ...
+PermissionDenied
+
+>>> request.POST['csrfmiddlewaretoken'] = _make_token('my_session_id')
+>>> csrf.process_request(request)
+
+"""
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
 # -*- coding: utf-8 -*-
 
 from django.test import TestCase
