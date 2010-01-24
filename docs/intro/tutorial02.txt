@@ -34,11 +34,11 @@ activate the admin site for your installation, do these three things:
     * Run ``python manage.py syncdb``. Since you have added a new application
       to :setting:`INSTALLED_APPS`, the database tables need to be updated.
 
-    * Edit your ``mysite/urls.py`` file and uncomment the lines below the
-      "Uncomment the next two lines..." comment. This file is a URLconf;
-      we'll dig into URLconfs in the next tutorial. For now, all you need to
-      know is that it maps URL roots to applications. In the end, you should
-      have a ``urls.py`` file that looks like this:
+    * Edit your ``mysite/urls.py`` file and uncomment the lines that reference
+      the admin -- there are three lines in total to uncomment. This file is a
+      URLconf; we'll dig into URLconfs in the next tutorial. For now, all you
+      need to know is that it maps URL roots to applications. In the end, you
+      should have a ``urls.py`` file that looks like this:
 
     .. versionchanged:: 1.1
         The method for adding admin urls has changed in Django 1.1.
@@ -399,7 +399,7 @@ ridiculous. It's just placeholder text.
 
 That's easy to change, though, using Django's template system. The Django admin
 is powered by Django itself, and its interfaces use Django's own template
-system. (How meta!)
+system.
 
 Open your settings file (``mysite/settings.py``, remember) and look at the
 :setting:`TEMPLATE_DIRS` setting. :setting:`TEMPLATE_DIRS` is a tuple of
@@ -414,11 +414,11 @@ tell Django where our templates live::
     )
 
 Now copy the template ``admin/base_site.html`` from within the default Django
-admin template directory (``django/contrib/admin/templates``) into an ``admin``
-subdirectory of whichever directory you're using in :setting:`TEMPLATE_DIRS`.
-For example, if your :setting:`TEMPLATE_DIRS` includes
-``"/home/my_username/mytemplates"``, as above, then copy
-``django/contrib/admin/templates/admin/base_site.html`` to
+admin template directory in the source code of Django itself
+(``django/contrib/admin/templates``) into an ``admin`` subdirectory of
+whichever directory you're using in :setting:`TEMPLATE_DIRS`. For example, if
+your :setting:`TEMPLATE_DIRS` includes ``"/home/my_username/mytemplates"``, as
+above, then copy ``django/contrib/admin/templates/admin/base_site.html`` to
 ``/home/my_username/mytemplates/admin/base_site.html``. Don't forget that
 ``admin`` subdirectory.
 
