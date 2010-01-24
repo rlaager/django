@@ -1,4 +1,7 @@
+import sys
+import signal
 import unittest
+
 from django.conf import settings
 from django.db.models import get_app, get_apps
 from django.test import _doctest as doctest
@@ -9,6 +12,54 @@ from django.test.testcases import OutputChecker, DocTestRunner, TestCase
 TEST_MODULE = 'tests'
 
 doctestOutputChecker = OutputChecker()
+
+class DjangoTestRunner(unittest.TextTestRunner):
+
+    def __init__(self, verbosity=0, failfast=False, **kwargs):
+        super(DjangoTestRunner, self).__init__(verbosity=verbosity, **kwargs)
+        self.failfast = failfast
+        self._keyboard_interrupt_intercepted = False
+
+    def run(self, *args, **kwargs):
+        """
+        Runs the test suite after registering a custom signal handler
+        that triggers a graceful exit when Ctrl-C is pressed.
+        """
+        self._default_keyboard_interrupt_handler = signal.signal(signal.SIGINT,
+            self._keyboard_interrupt_handler)
+        try:
+            result = super(DjangoTestRunner, self).run(*args, **kwargs)
+        finally:
+            signal.signal(signal.SIGINT, self._default_keyboard_interrupt_handler)
+        return result
+
+    def _keyboard_interrupt_handler(self, signal_number, stack_frame):
+        """
+        Handles Ctrl-C by setting a flag that will stop the test run when
+        the currently running test completes.
+        """
+        self._keyboard_interrupt_intercepted = True
+        sys.stderr.write(" <Test run halted by Ctrl-C> ")
+        # Set the interrupt handler back to the default handler, so that
+        # another Ctrl-C press will trigger immediate exit.
+        signal.signal(signal.SIGINT, self._default_keyboard_interrupt_handler)
+
+    def _makeResult(self):
+        result = super(DjangoTestRunner, self)._makeResult()
+        failfast = self.failfast
+
+        def stoptest_override(func):
+            def stoptest(test):
+                # If we were set to failfast and the unit test failed,
+                # or if the user has typed Ctrl-C, report and quit
+                if (failfast and not result.wasSuccessful()) or \
+                    self._keyboard_interrupt_intercepted:
+                    result.stop()
+                func(test)
+            return stoptest
+
+        setattr(result, 'stopTest', stoptest_override(result.stopTest))
+        return result
 
 def get_tests(app_module):
     try:
@@ -73,9 +124,9 @@ def build_suite(app_module):
     return suite
 
 def build_test(label):
-    """Construct a test case a test with the specified label. Label should
-    be of the form model.TestClass or model.TestClass.test_method. Returns
-    an instantiated test or test suite corresponding to the label provided.
+    """Construct a test case with the specified label. Label should be of the
+    form model.TestClass or model.TestClass.test_method. Returns an
+    instantiated test or test suite corresponding to the label provided.
 
     """
     parts = label.split('.')
@@ -146,52 +197,97 @@ def reorder_suite(suite, classes):
         bins[0].addTests(bins[i+1])
     return bins[0]
 
-def run_tests(test_labels, verbosity=1, interactive=True, extra_tests=[]):
-    """
-    Run the unit tests for all the test labels in the provided list.
-    Labels must be of the form:
-     - app.TestClass.test_method
-        Run a single specific test method
-     - app.TestClass
-        Run all the test methods in a given class
-     - app
-        Search for doctests and unittests in the named application.
 
-    When looking for tests, the test runner will look in the models and
-    tests modules for the application.
+class DjangoTestSuiteRunner(object):
+    def __init__(self, verbosity=1, interactive=True, failfast=True):
+        self.verbosity = verbosity
+        self.interactive = interactive
+        self.failfast = failfast
 
-    A list of 'extra' tests may also be provided; these tests
-    will be added to the test suite.
+    def setup_test_environment(self):
+        setup_test_environment()
+        settings.DEBUG = False
 
-    Returns the number of tests that failed.
-    """
-    setup_test_environment()
+    def build_suite(self, test_labels, extra_tests=None):
+        suite = unittest.TestSuite()
 
-    settings.DEBUG = False
-    suite = unittest.TestSuite()
-
-    if test_labels:
-        for label in test_labels:
-            if '.' in label:
-                suite.addTest(build_test(label))
-            else:
-                app = get_app(label)
+        if test_labels:
+            for label in test_labels:
+                if '.' in label:
+                    suite.addTest(build_test(label))
+                else:
+                    app = get_app(label)
+                    suite.addTest(build_suite(app))
+        else:
+            for app in get_apps():
                 suite.addTest(build_suite(app))
-    else:
-        for app in get_apps():
-            suite.addTest(build_suite(app))
 
-    for test in extra_tests:
-        suite.addTest(test)
+        if extra_tests:
+            for test in extra_tests:
+                suite.addTest(test)
 
-    suite = reorder_suite(suite, (TestCase,))
+        return reorder_suite(suite, (TestCase,))
 
-    old_name = settings.DATABASE_NAME
-    from django.db import connection
-    connection.creation.create_test_db(verbosity, autoclobber=not interactive)
-    result = unittest.TextTestRunner(verbosity=verbosity).run(suite)
-    connection.creation.destroy_test_db(old_name, verbosity)
+    def setup_databases(self):
+        from django.db import connections
+        old_names = []
+        for alias in connections:
+            connection = connections[alias]
+            old_names.append((connection, connection.settings_dict['NAME']))
+            connection.creation.create_test_db(self.verbosity, autoclobber=not self.interactive)
+        return old_names
 
-    teardown_test_environment()
+    def run_suite(self, suite):
+        return DjangoTestRunner(verbosity=self.verbosity, failfast=self.failfast).run(suite)
 
-    return len(result.failures) + len(result.errors)
+    def teardown_databases(self, old_names):
+        for connection, old_name in old_names:
+            connection.creation.destroy_test_db(old_name, self.verbosity)
+
+    def teardown_test_environment(self):
+        teardown_test_environment()
+
+    def suite_result(self, result):
+        return len(result.failures) + len(result.errors)
+
+    def run_tests(self, test_labels, extra_tests=None):
+        """
+        Run the unit tests for all the test labels in the provided list.
+        Labels must be of the form:
+         - app.TestClass.test_method
+            Run a single specific test method
+         - app.TestClass
+            Run all the test methods in a given class
+         - app
+            Search for doctests and unittests in the named application.
+
+        When looking for tests, the test runner will look in the models and
+        tests modules for the application.
+
+        A list of 'extra' tests may also be provided; these tests
+        will be added to the test suite.
+
+        Returns the number of tests that failed.
+        """
+        self.setup_test_environment()
+
+        suite = self.build_suite(test_labels, extra_tests)
+
+        old_names = self.setup_databases()
+
+        result = self.run_suite(suite)
+
+        self.teardown_databases(old_names)
+
+        self.teardown_test_environment()
+
+        return self.suite_result(result)
+
+def run_tests(test_labels, verbosity=1, interactive=True, failfast=False, extra_tests=None):
+    import warnings
+    warnings.warn(
+        'The run_tests() test runner has been deprecated in favor of DjangoTestSuiteRunner.',
+        PendingDeprecationWarning
+    )
+    test_runner = DjangoTestSuiteRunner(verbosity=verbosity, interactive=interactive, failfast=failfast)
+    return test_runner.run_tests(test_labels, extra_tests=extra_tests)
