@@ -647,7 +647,10 @@ class ModelAdmin(BaseModelAdmin):
             return HttpResponseRedirect("../add/")
         else:
             self.message_user(request, msg)
-            return HttpResponseRedirect("../")
+            if self.has_change_permission(request, None):
+                return HttpResponseRedirect("../")
+            else:
+                return HttpResponseRedirect(request.path)
 
     def response_action(self, request, queryset):
         """
