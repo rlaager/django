@@ -65,6 +65,7 @@ class ConnectionHandler(object):
         conn.setdefault('TEST_CHARSET', None)
         conn.setdefault('TEST_COLLATION', None)
         conn.setdefault('TEST_NAME', None)
+        conn.setdefault('TEST_MIRROR', None)
         conn.setdefault('TIME_ZONE', settings.TIME_ZONE)
         for setting in ('NAME', 'USER', 'PASSWORD', 'HOST', 'PORT'):
             conn.setdefault(setting, '')
@@ -120,3 +121,10 @@ class ConnectionRouter(object):
             if allow is not None:
                 return allow
         return obj1._state.db == obj2._state.db
+
+    def allow_syncdb(self, db, model):
+        for router in self.routers:
+            allow = router.allow_syncdb(db, model)
+            if allow is not None:
+                return allow
+        return True
