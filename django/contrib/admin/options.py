@@ -157,10 +157,6 @@ class BaseModelAdmin(object):
         """
         Get a form Field for a ManyToManyField.
         """
-        # If it uses an intermediary model that isn't auto created, don't show
-        # a field in admin.
-        if not db_field.rel.through._meta.auto_created:
-            return None
         db = kwargs.get('using')
 
         if db_field.name in self.raw_id_fields:
