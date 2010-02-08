@@ -677,7 +677,11 @@ class SQLCompiler(object):
             return cursor
         if result_type == SINGLE:
             if self.query.ordering_aliases:
-                return cursor.fetchone()[:-len(self.query.ordering_aliases)]
+                row = cursor.fetchone()
+                if row:
+                    return row[:-len(self.query.ordering_aliases)]
+                else:
+                    return
             return cursor.fetchone()
 
         # The MULTI case.
