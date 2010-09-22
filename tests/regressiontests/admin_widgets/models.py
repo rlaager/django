@@ -49,7 +49,7 @@ class Inventory(models.Model):
       return self.name
 
 class Event(models.Model):
-    band = models.ForeignKey(Band)
+    band = models.ForeignKey(Band, limit_choices_to=models.Q(pk__gt=0))
     start_date = models.DateField(blank=True, null=True)
     start_time = models.TimeField(blank=True, null=True)
     description = models.TextField(blank=True)
@@ -90,8 +90,14 @@ HTML escaped.
 
 >>> w = FilteredSelectMultiple('test', False)
 >>> print conditional_escape(w.render('test', 'test'))
-<select multiple="multiple" name="test">
+<select multiple="multiple" name="test" class="selectfilter">
 </select><script type="text/javascript">addEvent(window, "load", function(e) {SelectFilter.init("id_test", "test", 0, "%(ADMIN_MEDIA_PREFIX)s"); });</script>
+<BLANKLINE>
+
+>>> w = FilteredSelectMultiple('test', True)
+>>> print conditional_escape(w.render('test', 'test'))
+<select multiple="multiple" name="test" class="selectfilterstacked">
+</select><script type="text/javascript">addEvent(window, "load", function(e) {SelectFilter.init("id_test", "test", 1, "%(ADMIN_MEDIA_PREFIX)s"); });</script>
 <BLANKLINE>
 
 >>> w = AdminSplitDateTime()
@@ -99,6 +105,7 @@ HTML escaped.
 <p class="datetime">Date: <input value="2007-12-01" type="text" class="vDateField" name="test_0" size="10" /><br />Time: <input value="09:30:00" type="text" class="vTimeField" name="test_1" size="8" /></p>
 >>> activate('de-at')
 >>> settings.USE_L10N = True
+>>> w.is_localized = True
 >>> print conditional_escape(w.render('test', datetime(2007, 12, 1, 9, 30)))
 <p class="datetime">Datum: <input value="01.12.2007" type="text" class="vDateField" name="test_0" size="10" /><br />Zeit: <input value="09:30:00" type="text" class="vTimeField" name="test_1" size="8" /></p>
 >>> deactivate()

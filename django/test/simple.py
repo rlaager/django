@@ -133,32 +133,57 @@ def build_test(label):
     if len(parts) < 2 or len(parts) > 3:
         raise ValueError("Test label '%s' should be of the form app.TestCase or app.TestCase.test_method" % label)
 
+    #
+    # First, look for TestCase instances with a name that matches
+    #
     app_module = get_app(parts[0])
+    test_module = get_tests(app_module)
     TestClass = getattr(app_module, parts[1], None)
 
     # Couldn't find the test class in models.py; look in tests.py
     if TestClass is None:
-        test_module = get_tests(app_module)
         if test_module:
             TestClass = getattr(test_module, parts[1], None)
 
-    if len(parts) == 2: # label is app.TestClass
-        try:
-            return unittest.TestLoader().loadTestsFromTestCase(TestClass)
-        except TypeError:
-            raise ValueError("Test label '%s' does not refer to a test class" % label)
-    else: # label is app.TestClass.test_method
-        if not TestClass:
-            raise ValueError("Test label '%s' does not refer to a test class" % label)
-        return TestClass(parts[2])
+    try:
+        if issubclass(TestClass, unittest.TestCase):
+            if len(parts) == 2: # label is app.TestClass
+                try:
+                    return unittest.TestLoader().loadTestsFromTestCase(TestClass)
+                except TypeError:
+                    raise ValueError("Test label '%s' does not refer to a test class" % label)
+            else: # label is app.TestClass.test_method
+                return TestClass(parts[2])
+    except TypeError:
+        # TestClass isn't a TestClass - it must be a method or normal class
+        pass
 
-# Python 2.3 compatibility: TestSuites were made iterable in 2.4.
-# We need to iterate over them, so we add the missing method when
-# necessary.
-try:
-    getattr(unittest.TestSuite, '__iter__')
-except AttributeError:
-    setattr(unittest.TestSuite, '__iter__', lambda s: iter(s._tests))
+    #
+    # If there isn't a TestCase, look for a doctest that matches
+    #
+    tests = []
+    for module in app_module, test_module:
+        try:
+            doctests = doctest.DocTestSuite(module,
+                                            checker=doctestOutputChecker,
+                                            runner=DocTestRunner)
+            # Now iterate over the suite, looking for doctests whose name
+            # matches the pattern that was given
+            for test in doctests:
+                if test._dt_test.name in (
+                        '%s.%s' % (module.__name__, '.'.join(parts[1:])),
+                        '%s.__test__.%s' % (module.__name__, '.'.join(parts[1:]))):
+                    tests.append(test)
+        except ValueError:
+            # No doctests found.
+            pass
+
+    # If no tests were found, then we were given a bad test label.
+    if not tests:
+        raise ValueError("Test label '%s' does not refer to a test" % label)
+
+    # Construct a suite out of the tests that matched.
+    return unittest.TestSuite(tests)
 
 def partition_suite(suite, classes, bins):
     """
@@ -199,16 +224,16 @@ def reorder_suite(suite, classes):
 
 
 class DjangoTestSuiteRunner(object):
-    def __init__(self, verbosity=1, interactive=True, failfast=True):
+    def __init__(self, verbosity=1, interactive=True, failfast=True, **kwargs):
         self.verbosity = verbosity
         self.interactive = interactive
         self.failfast = failfast
 
-    def setup_test_environment(self):
+    def setup_test_environment(self, **kwargs):
         setup_test_environment()
         settings.DEBUG = False
 
-    def build_suite(self, test_labels, extra_tests=None):
+    def build_suite(self, test_labels, extra_tests=None, **kwargs):
         suite = unittest.TestSuite()
 
         if test_labels:
@@ -228,7 +253,7 @@ class DjangoTestSuiteRunner(object):
 
         return reorder_suite(suite, (TestCase,))
 
-    def setup_databases(self):
+    def setup_databases(self, **kwargs):
         from django.db import connections
         old_names = []
         mirrors = []
@@ -245,10 +270,10 @@ class DjangoTestSuiteRunner(object):
                 connection.creation.create_test_db(self.verbosity, autoclobber=not self.interactive)
         return old_names, mirrors
 
-    def run_suite(self, suite):
+    def run_suite(self, suite, **kwargs):
         return DjangoTestRunner(verbosity=self.verbosity, failfast=self.failfast).run(suite)
 
-    def teardown_databases(self, old_config):
+    def teardown_databases(self, old_config, **kwargs):
         from django.db import connections
         old_names, mirrors = old_config
         # Point all the mirrors back to the originals
@@ -258,13 +283,13 @@ class DjangoTestSuiteRunner(object):
         for connection, old_name in old_names:
             connection.creation.destroy_test_db(old_name, self.verbosity)
 
-    def teardown_test_environment(self):
+    def teardown_test_environment(self, **kwargs):
         teardown_test_environment()
 
-    def suite_result(self, result):
+    def suite_result(self, suite, result, **kwargs):
         return len(result.failures) + len(result.errors)
 
-    def run_tests(self, test_labels, extra_tests=None):
+    def run_tests(self, test_labels, extra_tests=None, **kwargs):
         """
         Run the unit tests for all the test labels in the provided list.
         Labels must be of the form:
@@ -289,7 +314,7 @@ class DjangoTestSuiteRunner(object):
         result = self.run_suite(suite)
         self.teardown_databases(old_config)
         self.teardown_test_environment()
-        return self.suite_result(result)
+        return self.suite_result(suite, result)
 
 def run_tests(test_labels, verbosity=1, interactive=True, failfast=False, extra_tests=None):
     import warnings

@@ -397,7 +397,7 @@ class TransactionTestCase(unittest.TestCase):
         # Put context(s) into a list to simplify processing.
         contexts = to_list(response.context)
         if not contexts:
-            self.fail(msg_prefix + "Response did not use any contexts to"
+            self.fail(msg_prefix + "Response did not use any contexts to "
                       "render the response")
 
         # Put error(s) into a list to simplify processing.
@@ -465,6 +465,9 @@ class TransactionTestCase(unittest.TestCase):
         self.failIf(template_name in template_names,
             msg_prefix + "Template '%s' was used unexpectedly in rendering"
             " the response" % template_name)
+
+    def assertQuerysetEqual(self, qs, values, transform=repr):
+        return self.assertEqual(map(transform, qs), values)
 
 def connections_support_transactions():
     """

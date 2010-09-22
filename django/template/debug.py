@@ -74,12 +74,13 @@ class DebugNodeList(NodeList):
             if not hasattr(e, 'source'):
                 e.source = node.source
             raise
-#        except Exception, e:
-#            from sys import exc_info
-#            wrapped = TemplateSyntaxError(u'Caught an exception while rendering: %s' % force_unicode(e, errors='replace'))
-#            wrapped.source = node.source
-#            wrapped.exc_info = exc_info()
-#            raise wrapped
+        except Exception, e:
+            from sys import exc_info
+            wrapped = TemplateSyntaxError(u'Caught %s while rendering: %s' %
+                (e.__class__.__name__, force_unicode(e, errors='replace')))
+            wrapped.source = node.source
+            wrapped.exc_info = exc_info()
+            raise wrapped, None, wrapped.exc_info[2]
         return result
 
 class DebugVariableNode(VariableNode):

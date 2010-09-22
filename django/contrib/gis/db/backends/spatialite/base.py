@@ -40,7 +40,6 @@ class DatabaseWrapper(SqliteDatabaseWrapper):
             ## The following is the same as in django.db.backends.sqlite3.base ##
             settings_dict = self.settings_dict
             if not settings_dict['NAME']:
-                from django.core.exceptions import ImproperlyConfigured
                 raise ImproperlyConfigured("Please fill out the database NAME in the settings module before using the database.")
             kwargs = {
                 'database': settings_dict['NAME'],
@@ -52,7 +51,7 @@ class DatabaseWrapper(SqliteDatabaseWrapper):
             self.connection.create_function("django_extract", 2, _sqlite_extract)
             self.connection.create_function("django_date_trunc", 2, _sqlite_date_trunc)
             self.connection.create_function("regexp", 2, _sqlite_regexp)
-            connection_created.send(sender=self.__class__)
+            connection_created.send(sender=self.__class__, connection=self)
 
             ## From here on, customized for GeoDjango ##
 

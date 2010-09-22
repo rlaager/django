@@ -5,7 +5,8 @@ from django.conf import settings
 from django.contrib.contenttypes.generic import generic_inlineformset_factory
 
 # local test models
-from models import Episode, EpisodeExtra, EpisodeMaxNum, EpisodeExclude, Media
+from models import Episode, EpisodeExtra, EpisodeMaxNum, EpisodeExclude, \
+                   Media, EpisodePermanent, MediaPermanentInline
 
 class GenericAdminViewTest(TestCase):
     fixtures = ['users.xml']
@@ -58,6 +59,7 @@ class GenericAdminViewTest(TestCase):
             # inline data
             "generic_inline_admin-media-content_type-object_id-TOTAL_FORMS": u"1",
             "generic_inline_admin-media-content_type-object_id-INITIAL_FORMS": u"0",
+            "generic_inline_admin-media-content_type-object_id-MAX_NUM_FORMS": u"0",
         }
         response = self.client.post('/generic_inline_admin/admin/generic_inline_admin/episode/add/', post_data)
         self.failUnlessEqual(response.status_code, 302) # redirect somewhere
@@ -71,6 +73,7 @@ class GenericAdminViewTest(TestCase):
             # inline data
             "generic_inline_admin-media-content_type-object_id-TOTAL_FORMS": u"3",
             "generic_inline_admin-media-content_type-object_id-INITIAL_FORMS": u"2",
+            "generic_inline_admin-media-content_type-object_id-MAX_NUM_FORMS": u"0",
             "generic_inline_admin-media-content_type-object_id-0-id": u"%d" % self.mp3_media_pk,
             "generic_inline_admin-media-content_type-object_id-0-url": u"http://example.com/podcast.mp3",
             "generic_inline_admin-media-content_type-object_id-1-id": u"%d" % self.png_media_pk,
@@ -192,9 +195,18 @@ class GenericInlineAdminWithUniqueTogetherTest(TestCase):
             # inline data
             "generic_inline_admin-phonenumber-content_type-object_id-TOTAL_FORMS": u"1",
             "generic_inline_admin-phonenumber-content_type-object_id-INITIAL_FORMS": u"0",
+            "generic_inline_admin-phonenumber-content_type-object_id-MAX_NUM_FORMS": u"0",
             "generic_inline_admin-phonenumber-content_type-object_id-0-id": "",
             "generic_inline_admin-phonenumber-content_type-object_id-0-phone_number": "555-555-5555",
         }
         response = self.client.get('/generic_inline_admin/admin/generic_inline_admin/contact/add/')
         response = self.client.post('/generic_inline_admin/admin/generic_inline_admin/contact/add/', post_data)
         self.failUnlessEqual(response.status_code, 302) # redirect somewhere
+
+class NoInlineDeletionTest(TestCase):
+    def test_no_deletion(self):
+        fake_site = object()
+        inline = MediaPermanentInline(EpisodePermanent, fake_site)
+        fake_request = object()
+        formset = inline.get_formset(fake_request)
+        self.assertFalse(formset.can_delete)

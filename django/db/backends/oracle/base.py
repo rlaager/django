@@ -4,13 +4,12 @@ Oracle database backend for Django.
 Requires cx_Oracle: http://cx-oracle.sourceforge.net/
 """
 
-import os
+
 import datetime
+import os
+import sys
 import time
-try:
-    from decimal import Decimal
-except ImportError:
-    from django.utils._decimal import Decimal
+from decimal import Decimal
 
 # Oracle takes client-side character set encoding from the environment.
 os.environ['NLS_LANG'] = '.UTF8'
@@ -24,6 +23,7 @@ except ImportError, e:
     from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured("Error loading cx_Oracle module: %s" % e)
 
+from django.db import utils
 from django.db.backends import *
 from django.db.backends.signals import connection_created
 from django.db.backends.oracle.client import DatabaseClient
@@ -49,6 +49,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     interprets_empty_strings_as_nulls = True
     uses_savepoints = True
     can_return_id_from_insert = True
+    allow_sliced_subqueries = False
 
 
 class DatabaseOperations(BaseDatabaseOperations):
@@ -383,7 +384,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 # Django docs specify cx_Oracle version 4.3.1 or higher, but
                 # stmtcachesize is available only in 4.3.2 and up.
                 pass
-            connection_created.send(sender=self.__class__)
+            connection_created.send(sender=self.__class__, connection=self)
         if not cursor:
             cursor = FormatStylePlaceholderCursor(self.connection)
         return cursor
@@ -419,6 +420,30 @@ class OracleParam(object):
             self.input_size = None
 
 
+class VariableWrapper(object):
+    """
+    An adapter class for cursor variables that prevents the wrapped object
+    from being converted into a string when used to instanciate an OracleParam.
+    This can be used generally for any other object that should be passed into
+    Cursor.execute as-is.
+    """
+
+    def __init__(self, var):
+        self.var = var
+
+    def bind_parameter(self, cursor):
+        return self.var
+
+    def __getattr__(self, key):
+        return getattr(self.var, key)
+
+    def __setattr__(self, key, value):
+        if key == 'var':
+            self.__dict__[key] = value
+        else:
+            setattr(self.var, key, value)
+
+
 class InsertIdVar(object):
     """
     A late-binding cursor variable that can be passed to Cursor.execute
@@ -427,7 +452,7 @@ class InsertIdVar(object):
     """
 
     def bind_parameter(self, cursor):
-        param = cursor.var(Database.NUMBER)
+        param = cursor.cursor.var(Database.NUMBER)
         cursor._insert_id_var = param
         return param
 
@@ -480,11 +505,13 @@ class FormatStylePlaceholderCursor(object):
         self._guess_input_sizes([params])
         try:
             return self.cursor.execute(query, self._param_generator(params))
-        except DatabaseError, e:
+        except Database.IntegrityError, e:
+            raise utils.IntegrityError, utils.IntegrityError(*tuple(e)), sys.exc_info()[2]
+        except Database.DatabaseError, e:
             # cx_Oracle <= 4.4.0 wrongly raises a DatabaseError for ORA-01400.
-            if e.args[0].code == 1400 and not isinstance(e, IntegrityError):
-                e = IntegrityError(e.args[0])
-            raise e
+            if hasattr(e.args[0], 'code') and e.args[0].code == 1400 and not isinstance(e, IntegrityError):
+                raise utils.IntegrityError, utils.IntegrityError(*tuple(e)), sys.exc_info()[2]
+            raise utils.DatabaseError, utils.DatabaseError(*tuple(e)), sys.exc_info()[2]
 
     def executemany(self, query, params=None):
         try:
@@ -504,11 +531,13 @@ class FormatStylePlaceholderCursor(object):
         try:
             return self.cursor.executemany(query,
                                 [self._param_generator(p) for p in formatted])
-        except DatabaseError, e:
+        except Database.IntegrityError, e:
+            raise utils.IntegrityError, utils.IntegrityError(*tuple(e)), sys.exc_info()[2]
+        except Database.DatabaseError, e:
             # cx_Oracle <= 4.4.0 wrongly raises a DatabaseError for ORA-01400.
-            if e.args[0].code == 1400 and not isinstance(e, IntegrityError):
-                e = IntegrityError(e.args[0])
-            raise e
+            if hasattr(e.args[0], 'code') and e.args[0].code == 1400 and not isinstance(e, IntegrityError):
+                raise utils.IntegrityError, utils.IntegrityError(*tuple(e)), sys.exc_info()[2]
+            raise utils.DatabaseError, utils.DatabaseError(*tuple(e)), sys.exc_info()[2]
 
     def fetchone(self):
         row = self.cursor.fetchone()
@@ -525,6 +554,12 @@ class FormatStylePlaceholderCursor(object):
     def fetchall(self):
         return tuple([_rowfactory(r, self.cursor)
                       for r in self.cursor.fetchall()])
+
+    def var(self, *args):
+        return VariableWrapper(self.cursor.var(*args))
+
+    def arrayvar(self, *args):
+        return VariableWrapper(self.cursor.arrayvar(*args))
 
     def __getattr__(self, attr):
         if attr in self.__dict__:

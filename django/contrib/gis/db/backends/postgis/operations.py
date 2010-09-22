@@ -8,7 +8,8 @@ from django.contrib.gis.db.backends.postgis.adapter import PostGISAdapter
 from django.contrib.gis.geometry.backend import Geometry
 from django.contrib.gis.measure import Distance
 from django.core.exceptions import ImproperlyConfigured
-from django.db.backends.postgresql_psycopg2.base import Database, DatabaseOperations
+from django.db.backends.postgresql_psycopg2.base import DatabaseOperations
+from django.db.utils import DatabaseError
 
 #### Classes used in constructing PostGIS spatial SQL ####
 class PostGISOperator(SpatialOperation):
@@ -65,6 +66,7 @@ class PostGISOperations(DatabaseOperations, BaseSpatialOperations):
                              ('Collect', 'Extent', 'Extent3D', 'MakeLine', 'Union')])
 
     Adapter = PostGISAdapter
+    Adaptor = Adapter # Backwards-compatibility alias.
 
     def __init__(self, connection):
         super(PostGISOperations, self).__init__(connection)
@@ -99,7 +101,7 @@ class PostGISOperations(DatabaseOperations, BaseSpatialOperations):
 
             self.geom_func_prefix = prefix
             self.spatial_version = version
-        except Database.ProgrammingError:
+        except DatabaseError:
             raise ImproperlyConfigured('Cannot determine PostGIS version for database "%s". '
                                        'GeoDjango requires at least PostGIS version 1.3. '
                                        'Was the database created from a spatial database '
@@ -252,6 +254,7 @@ class PostGISOperations(DatabaseOperations, BaseSpatialOperations):
         self.envelope = prefix + 'Envelope'
         self.extent = prefix + 'Extent'
         self.extent3d = prefix + 'Extent3D'
+        self.force_rhr = prefix + 'ForceRHR'
         self.geohash = GEOHASH
         self.geojson = GEOJSON
         self.gml = prefix + 'AsGML'
@@ -268,6 +271,7 @@ class PostGISOperations(DatabaseOperations, BaseSpatialOperations):
         self.perimeter3d = prefix + 'Perimeter3D'
         self.point_on_surface = prefix + 'PointOnSurface'
         self.polygonize = prefix + 'Polygonize'
+        self.reverse = prefix + 'Reverse'
         self.scale = prefix + 'Scale'
         self.snap_to_grid = prefix + 'SnapToGrid'
         self.svg = prefix + 'AsSVG'
@@ -410,7 +414,8 @@ class PostGISOperations(DatabaseOperations, BaseSpatialOperations):
                 # Responsibility of callers to perform error handling.
                 raise
         finally:
-            cursor.close()
+            # Close out the connection.  See #9437.
+            self.connection.close()
         return row[0]
 
     def postgis_geos_version(self):
@@ -533,12 +538,14 @@ class PostGISOperations(DatabaseOperations, BaseSpatialOperations):
                     op = op(self.geom_func_prefix, value[1])
                 elif lookup_type in self.distance_functions and lookup_type != 'dwithin':
                     if not field.geography and field.geodetic(self.connection):
-                        # Geodetic distances are only availble from Points to PointFields.
-                        if field.geom_type != 'POINT':
-                            raise ValueError('PostGIS spherical operations are only valid on PointFields.')
+                        # Geodetic distances are only availble from Points to
+                        # PointFields on PostGIS 1.4 and below.
+                        if not self.connection.ops.geography:
+                            if field.geom_type != 'POINT':
+                                raise ValueError('PostGIS spherical operations are only valid on PointFields.')
 
-                        if str(geom.geom_type) != 'Point':
-                            raise ValueError('PostGIS geometry distance parameter is required to be of type Point.')
+                            if str(geom.geom_type) != 'Point':
+                                raise ValueError('PostGIS geometry distance parameter is required to be of type Point.')
 
                         # Setting up the geodetic operation appropriately.
                         if nparams == 3 and value[2] == 'spheroid':

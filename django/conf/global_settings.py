@@ -42,8 +42,9 @@ LANGUAGE_CODE = 'en-us'
 # should be the utf-8 encoded local name for the language.
 LANGUAGES = (
     ('ar', gettext_noop('Arabic')),
-    ('bn', gettext_noop('Bengali')),
     ('bg', gettext_noop('Bulgarian')),
+    ('bn', gettext_noop('Bengali')),
+    ('bs', gettext_noop('Bosnian')),
     ('ca', gettext_noop('Catalan')),
     ('cs', gettext_noop('Czech')),
     ('cy', gettext_noop('Welsh')),
@@ -51,31 +52,38 @@ LANGUAGES = (
     ('de', gettext_noop('German')),
     ('el', gettext_noop('Greek')),
     ('en', gettext_noop('English')),
+    ('en-gb', gettext_noop('British English')),
     ('es', gettext_noop('Spanish')),
+    ('es-ar', gettext_noop('Argentinian Spanish')),
     ('et', gettext_noop('Estonian')),
-    ('es-ar', gettext_noop('Argentinean Spanish')),
     ('eu', gettext_noop('Basque')),
     ('fa', gettext_noop('Persian')),
     ('fi', gettext_noop('Finnish')),
     ('fr', gettext_noop('French')),
+    ('fy-nl', gettext_noop('Frisian')),
     ('ga', gettext_noop('Irish')),
     ('gl', gettext_noop('Galician')),
-    ('hu', gettext_noop('Hungarian')),
     ('he', gettext_noop('Hebrew')),
     ('hi', gettext_noop('Hindi')),
     ('hr', gettext_noop('Croatian')),
+    ('hu', gettext_noop('Hungarian')),
+    ('id', gettext_noop('Indonesian')),
     ('is', gettext_noop('Icelandic')),
     ('it', gettext_noop('Italian')),
     ('ja', gettext_noop('Japanese')),
     ('ka', gettext_noop('Georgian')),
-    ('ko', gettext_noop('Korean')),
     ('km', gettext_noop('Khmer')),
     ('kn', gettext_noop('Kannada')),
-    ('lv', gettext_noop('Latvian')),
+    ('ko', gettext_noop('Korean')),
     ('lt', gettext_noop('Lithuanian')),
+    ('lv', gettext_noop('Latvian')),
     ('mk', gettext_noop('Macedonian')),
+    ('ml', gettext_noop('Malayalam')),
+    ('mn', gettext_noop('Mongolian')),
     ('nl', gettext_noop('Dutch')),
     ('no', gettext_noop('Norwegian')),
+    ('nb', gettext_noop('Norwegian Bokmal')),
+    ('nn', gettext_noop('Norwegian Nynorsk')),
     ('pl', gettext_noop('Polish')),
     ('pt', gettext_noop('Portuguese')),
     ('pt-br', gettext_noop('Brazilian Portuguese')),
@@ -83,6 +91,7 @@ LANGUAGES = (
     ('ru', gettext_noop('Russian')),
     ('sk', gettext_noop('Slovak')),
     ('sl', gettext_noop('Slovenian')),
+    ('sq', gettext_noop('Albanian')),
     ('sr', gettext_noop('Serbian')),
     ('sr-latn', gettext_noop('Serbian Latin')),
     ('sv', gettext_noop('Swedish')),
@@ -91,6 +100,7 @@ LANGUAGES = (
     ('th', gettext_noop('Thai')),
     ('tr', gettext_noop('Turkish')),
     ('uk', gettext_noop('Ukrainian')),
+    ('vi', gettext_noop('Vietnamese')),
     ('zh-cn', gettext_noop('Simplified Chinese')),
     ('zh-tw', gettext_noop('Traditional Chinese')),
 )
@@ -180,7 +190,7 @@ TEMPLATE_LOADERS = (
 # Each one should be a callable that takes the request object as its
 # only parameter and returns a dictionary to add to the context.
 TEMPLATE_CONTEXT_PROCESSORS = (
-    'django.core.context_processors.auth',
+    'django.contrib.auth.context_processors.auth',
     'django.core.context_processors.debug',
     'django.core.context_processors.i18n',
     'django.core.context_processors.media',
@@ -303,7 +313,7 @@ YEAR_MONTH_FORMAT = 'F Y'
 # http://docs.djangoproject.com/en/dev/ref/templates/builtins/#now
 MONTH_DAY_FORMAT = 'F j'
 
-# Default shortformatting for date objects. See all available format strings here:
+# Default short formatting for date objects. See all available format strings here:
 # http://docs.djangoproject.com/en/dev/ref/templates/builtins/#now
 SHORT_DATE_FORMAT = 'm/d/Y'
 

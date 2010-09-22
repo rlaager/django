@@ -1,7 +1,8 @@
 from django.conf import settings
 from django.core import signals
 from django.core.exceptions import ImproperlyConfigured
-from django.db.utils import ConnectionHandler, ConnectionRouter, load_backend, DEFAULT_DB_ALIAS
+from django.db.utils import ConnectionHandler, ConnectionRouter, load_backend, DEFAULT_DB_ALIAS, \
+                            DatabaseError, IntegrityError
 from django.utils.functional import curry
 
 __all__ = ('backend', 'connection', 'connections', 'router', 'DatabaseError',
@@ -34,6 +35,8 @@ if DEFAULT_DB_ALIAS not in settings.DATABASES:
     raise ImproperlyConfigured("You must default a '%s' database" % DEFAULT_DB_ALIAS)
 
 for alias, database in settings.DATABASES.items():
+    if 'ENGINE' not in database:
+        raise ImproperlyConfigured("You must specify a 'ENGINE' for database '%s'" % alias)
     if database['ENGINE'] in ("postgresql", "postgresql_psycopg2", "sqlite3", "mysql", "oracle"):
         import warnings
         if 'django.contrib.gis' in settings.INSTALLED_APPS:
@@ -73,8 +76,6 @@ router = ConnectionRouter(settings.DATABASE_ROUTERS)
 # connections['default'] instead.
 connection = connections[DEFAULT_DB_ALIAS]
 backend = load_backend(connection.settings_dict['ENGINE'])
-DatabaseError = backend.DatabaseError
-IntegrityError = backend.IntegrityError
 
 # Register an event that closes the database connection
 # when a Django request is finished.

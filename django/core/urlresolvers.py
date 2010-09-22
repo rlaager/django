@@ -19,12 +19,6 @@ from django.utils.importlib import import_module
 from django.utils.regex_helper import normalize
 from django.utils.thread_support import currentThread
 
-try:
-    reversed
-except NameError:
-    from django.utils.itercompat import reversed     # Python 2.3 fallback
-    from sets import Set as set
-
 _resolver_cache = {} # Maps URLconf modules to RegexURLResolver instances.
 _callable_cache = {} # Maps view and url pattern names to their view functions.
 
@@ -189,7 +183,8 @@ class RegexURLResolver(object):
             else:
                 bits = normalize(p_pattern)
                 lookups.appendlist(pattern.callback, (bits, p_pattern))
-                lookups.appendlist(pattern.name, (bits, p_pattern))
+                if pattern.name is not None:
+                    lookups.appendlist(pattern.name, (bits, p_pattern))
         self._reverse_dict = lookups
         self._namespace_dict = namespaces
         self._app_dict = apps

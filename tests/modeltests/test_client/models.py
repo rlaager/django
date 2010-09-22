@@ -21,6 +21,7 @@ rather than the HTML rendered to the end-user.
 
 """
 from django.test import Client, TestCase
+from django.conf import settings
 from django.core import mail
 
 class ClientTest(TestCase):
@@ -137,6 +138,16 @@ class ClientTest(TestCase):
         response = self.client.get('/test_client/double_redirect_view/', follow=True)
         self.assertRedirects(response, 'http://testserver/test_client/get_view/', status_code=302, target_status_code=200)
         self.assertEquals(len(response.redirect_chain), 2)
+
+    def test_redirect_http(self):
+        "GET a URL that redirects to an http URI"
+        response = self.client.get('/test_client/http_redirect_view/',follow=True)
+        self.assertFalse(response.test_was_secure_request)
+
+    def test_redirect_https(self):
+        "GET a URL that redirects to an https URI"
+        response = self.client.get('/test_client/https_redirect_view/',follow=True)
+        self.assertTrue(response.test_was_secure_request)
 
     def test_notfound_response(self):
         "GET a URL that responds as '404:Not Found'"
@@ -423,3 +434,26 @@ class ClientTest(TestCase):
         self.assertEqual(mail.outbox[1].from_email, 'from@example.com')
         self.assertEqual(mail.outbox[1].to[0], 'second@example.com')
         self.assertEqual(mail.outbox[1].to[1], 'third@example.com')
+
+class CSRFEnabledClientTests(TestCase):
+    def setUp(self):
+        # Enable the CSRF middleware for this test
+        self.old_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
+        csrf_middleware_class = 'django.middleware.csrf.CsrfViewMiddleware'
+        if csrf_middleware_class not in settings.MIDDLEWARE_CLASSES:
+            settings.MIDDLEWARE_CLASSES += (csrf_middleware_class,)
+
+    def tearDown(self):
+        settings.MIDDLEWARE_CLASSES = self.old_MIDDLEWARE_CLASSES
+
+    def test_csrf_enabled_client(self):
+        "A client can be instantiated with CSRF checks enabled"
+        csrf_client = Client(enforce_csrf_checks=True)
+
+        # The normal client allows the post
+        response = self.client.post('/test_client/post_view/', {})
+        self.assertEqual(response.status_code, 200)
+
+        # The CSRF-enabled client rejects it
+        response = csrf_client.post('/test_client/post_view/', {})
+        self.assertEqual(response.status_code, 403)

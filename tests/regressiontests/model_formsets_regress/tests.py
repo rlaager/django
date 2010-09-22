@@ -1,7 +1,9 @@
-from django.forms.models import modelform_factory, inlineformset_factory
+from django import forms
+from django.forms.models import modelform_factory, inlineformset_factory, modelformset_factory
 from django.test import TestCase
 
 from models import User, UserSite, Restaurant, Manager
+
 
 class InlineFormsetTests(TestCase):
     def test_formset_over_to_field(self):
@@ -20,6 +22,7 @@ class InlineFormsetTests(TestCase):
             'username': u'apollo13',
             'usersite_set-TOTAL_FORMS': u'1',
             'usersite_set-INITIAL_FORMS': u'0',
+            'usersite_set-MAX_NUM_FORMS': u'0',
             'usersite_set-0-data': u'10',
             'usersite_set-0-user': u'apollo13'
         }
@@ -43,6 +46,7 @@ class InlineFormsetTests(TestCase):
         data = {
             'usersite_set-TOTAL_FORMS': u'1',
             'usersite_set-INITIAL_FORMS': u'1',
+            'usersite_set-MAX_NUM_FORMS': u'0',
             'usersite_set-0-id': unicode(usersite[0]['id']),
             'usersite_set-0-data': u'11',
             'usersite_set-0-user': u'apollo13'
@@ -60,6 +64,7 @@ class InlineFormsetTests(TestCase):
         data = {
             'usersite_set-TOTAL_FORMS': u'2',
             'usersite_set-INITIAL_FORMS': u'1',
+            'usersite_set-MAX_NUM_FORMS': u'0',
             'usersite_set-0-id': unicode(usersite[0]['id']),
             'usersite_set-0-data': u'11',
             'usersite_set-0-user': u'apollo13',
@@ -92,6 +97,7 @@ class InlineFormsetTests(TestCase):
             'name': u"Guido's House of Pasta",
             'manager_set-TOTAL_FORMS': u'1',
             'manager_set-INITIAL_FORMS': u'0',
+            'manager_set-MAX_NUM_FORMS': u'0',
             'manager_set-0-name': u'Guido Van Rossum'
         }
         restaurant = User()
@@ -113,6 +119,7 @@ class InlineFormsetTests(TestCase):
         data = {
             'manager_set-TOTAL_FORMS': u'1',
             'manager_set-INITIAL_FORMS': u'1',
+            'manager_set-MAX_NUM_FORMS': u'0',
             'manager_set-0-id': unicode(manager[0]['id']),
             'manager_set-0-name': u'Terry Gilliam'
         }
@@ -128,6 +135,7 @@ class InlineFormsetTests(TestCase):
         data = {
             'manager_set-TOTAL_FORMS': u'2',
             'manager_set-INITIAL_FORMS': u'1',
+            'manager_set-MAX_NUM_FORMS': u'0',
             'manager_set-0-id': unicode(manager[0]['id']),
             'manager_set-0-name': u'Terry Gilliam',
             'manager_set-1-name': u'John Cleese'
@@ -150,3 +158,61 @@ class InlineFormsetTests(TestCase):
         # you can create a formset with an instance of None
         form = Form(instance=None)
         formset = FormSet(instance=None)
+
+
+class CustomWidget(forms.CharField):
+    pass
+
+
+class UserSiteForm(forms.ModelForm):
+    class Meta:
+        model = UserSite
+        widgets = {'data': CustomWidget}
+
+
+class Callback(object):
+
+    def __init__(self):
+        self.log = []
+
+    def __call__(self, db_field, **kwargs):
+        self.log.append((db_field, kwargs))
+        return db_field.formfield(**kwargs)
+
+
+class FormfieldCallbackTests(TestCase):
+    """
+    Regression for #13095: Using base forms with widgets
+    defined in Meta should not raise errors.
+    """
+
+    def test_inlineformset_factory_default(self):
+        Formset = inlineformset_factory(User, UserSite, form=UserSiteForm)
+        form = Formset({}).forms[0]
+        self.assertTrue(isinstance(form['data'].field.widget, CustomWidget))
+
+    def test_modelformset_factory_default(self):
+        Formset = modelformset_factory(UserSite, form=UserSiteForm)
+        form = Formset({}).forms[0]
+        self.assertTrue(isinstance(form['data'].field.widget, CustomWidget))
+
+    def assertCallbackCalled(self, callback):
+        id_field, user_field, data_field = UserSite._meta.fields
+        expected_log = [
+            (id_field, {}),
+            (user_field, {}),
+            (data_field, {'widget': CustomWidget}),
+        ]
+        self.assertEqual(callback.log, expected_log)
+
+    def test_inlineformset_custom_callback(self):
+        callback = Callback()
+        inlineformset_factory(User, UserSite, form=UserSiteForm,
+                              formfield_callback=callback)
+        self.assertCallbackCalled(callback)
+
+    def test_modelformset_custom_callback(self):
+        callback = Callback()
+        modelformset_factory(UserSite, form=UserSiteForm,
+                             formfield_callback=callback)
+        self.assertCallbackCalled(callback)

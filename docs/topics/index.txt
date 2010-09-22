@@ -1,5 +1,3 @@
-.. _topics-index:
-
 Using Django
 ============
 
@@ -21,7 +19,7 @@ Introductions to all the key parts of Django you'll need to know:
    cache
    conditional-view-processing
    email
-   i18n
+   i18n/index
    pagination
    serialization
    settings
