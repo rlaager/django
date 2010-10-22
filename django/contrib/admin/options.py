@@ -669,6 +669,8 @@ class ModelAdmin(BaseModelAdmin):
         Determines the HttpResponse for the change_view stage.
         """
         opts = obj._meta
+        while opts.proxy:
+            opts = opts.proxy_for_model._meta
         pk_value = obj._get_pk_val()
 
         msg = _('The %(name)s "%(obj)s" was changed successfully.') % {'name': force_unicode(opts.verbose_name), 'obj': force_unicode(obj)}
