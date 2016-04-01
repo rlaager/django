@@ -81,9 +81,9 @@ class DatabaseOperations(PostgresqlDatabaseOperations):
 class DatabaseWrapper(BaseDatabaseWrapper):
     operators = {
         'exact': '= %s',
-        'iexact': '= UPPER(%s)',
+        'iexact': '= LOWER(%s)',
         'contains': 'LIKE %s',
-        'icontains': 'LIKE UPPER(%s)',
+        'icontains': 'LIKE LOWER(%s)',
         'regex': '~ %s',
         'iregex': '~* %s',
         'gt': '> %s',
@@ -92,8 +92,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'lte': '<= %s',
         'startswith': 'LIKE %s',
         'endswith': 'LIKE %s',
-        'istartswith': 'LIKE UPPER(%s)',
-        'iendswith': 'LIKE UPPER(%s)',
+        'istartswith': 'LIKE LOWER(%s)',
+        'iendswith': 'LIKE LOWER(%s)',
     }
 
     def __init__(self, *args, **kwargs):
